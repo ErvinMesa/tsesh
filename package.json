@@ -1,0 +1,42 @@
+{
+  "name": "@rayvenjm/tsesh",
+  "version": "1.0.0-alpha",
+  "description": "A CLI Tool to quickly setup a tmux session",
+  "main": "dist/index.js",
+  "bin": {
+    "tsesh": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup --config tsup.config.ts",
+    "start": "tsx ./src/index.ts",
+    "prepack": "pnpm build"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "tmux",
+    "cli",
+    "sessions",
+    "workspace"
+  ],
+  "license": "ISC",
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "chalk": "4.1.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.2"
+  }
+}
