@@ -28,7 +28,7 @@ npm install -g @rayvenjm/tsesh
 Or run it without installing globally:
 
 ```bash
-npx @rayvenjm/tsesh
+npx @rayvenjm/tsesh@latest
 ```
 
 ## Usage
