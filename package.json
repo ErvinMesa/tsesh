@@ -1,6 +1,6 @@
 {
   "name": "@rayvenjm/tsesh",
-  "version": "1.0.0-alpha",
+  "version": "1.0.1-alpha",
   "description": "A CLI Tool to quickly setup a tmux session",
   "main": "dist/index.js",
   "bin": {
