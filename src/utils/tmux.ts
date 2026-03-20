@@ -17,8 +17,24 @@ export type WorkspaceWindow = {
   command?: string;
 };
 
-const runTmux = async (args: string[]) => {
-  await execFile('tmux', args, { env: process.env });
+type TmuxCommandOptions = {
+  forceOutsideTmux?: boolean;
+};
+
+const buildTmuxEnv = (forceOutsideTmux = false) => {
+  if (!forceOutsideTmux) {
+    return process.env;
+  }
+
+  const env = { ...process.env };
+  delete env.TMUX;
+  delete env.TMUX_PANE;
+
+  return env;
+};
+
+const runTmux = async (args: string[], options: TmuxCommandOptions = {}) => {
+  await execFile('tmux', args, { env: buildTmuxEnv(options.forceOutsideTmux) });
 };
 
 export const getWorkspaceSessionName = (rootDir: string) => {
@@ -35,9 +51,11 @@ export const assertTmuxAvailable = async () => {
   }
 };
 
-export const listExistingTmuxSessionNames = async () => {
+export const listExistingTmuxSessionNames = async (options: TmuxCommandOptions = {}) => {
   try {
-    const { stdout } = await execFile('tmux', ['list-sessions', '-F', '#S'], { env: process.env });
+    const { stdout } = await execFile('tmux', ['list-sessions', '-F', '#S'], {
+      env: buildTmuxEnv(options.forceOutsideTmux),
+    });
     return stdout
       .split('\n')
       .map((line) => line.trim())
@@ -45,6 +63,15 @@ export const listExistingTmuxSessionNames = async () => {
   } catch {
     return [];
   }
+};
+
+export const isTmuxServerRunning = async (options: TmuxCommandOptions = {}) =>
+  (await listExistingTmuxSessionNames(options)).length > 0;
+
+export const isInsideTmuxSession = () => Boolean(process.env.TMUX);
+
+export const killTmuxServer = async (options: TmuxCommandOptions = {}) => {
+  await runTmux(['kill-server'], options);
 };
 
 const buildUniqueSessionName = (name: string, index: number) =>
@@ -60,6 +87,7 @@ const createTmuxWindow = async (
   directory: string,
   window: WorkspaceWindow,
   isFirstWindow: boolean,
+  options: TmuxCommandOptions = {},
 ) => {
   const commandArgs = window.command ? ['bash', '-lc', window.command] : [];
 
@@ -74,7 +102,7 @@ const createTmuxWindow = async (
       '-c',
       directory,
       ...commandArgs,
-    ]);
+    ], options);
     return;
   }
 
@@ -87,15 +115,18 @@ const createTmuxWindow = async (
     '-c',
     directory,
     ...commandArgs,
-  ]);
+  ], options);
 };
 
-export const createWorkspaceSessions = async (sessions: WorkspaceSession[]) => {
+export const createWorkspaceSessions = async (
+  sessions: WorkspaceSession[],
+  options: TmuxCommandOptions = {},
+) => {
   if (sessions.length === 0) {
     throw new Error('At least one session is required.');
   }
 
-  await runTmux(['start-server']);
+  await runTmux(['start-server'], options);
 
   const normalizedSessions = sessions.map((session, index) => ({
     ...session,
@@ -107,7 +138,7 @@ export const createWorkspaceSessions = async (sessions: WorkspaceSession[]) => {
   }));
 
   const existingSessions = new Set(
-    (await listExistingTmuxSessionNames()).map((name) => normalizeSessionName(name, name)),
+    (await listExistingTmuxSessionNames(options)).map((name) => normalizeSessionName(name, name)),
   );
 
   const seenNames = new Set<string>();
@@ -139,21 +170,21 @@ export const createWorkspaceSessions = async (sessions: WorkspaceSession[]) => {
       seenWindowNames.add(window.name);
     }
 
-    await createTmuxWindow(session.name, session.directory, firstWindow, true);
+    await createTmuxWindow(session.name, session.directory, firstWindow, true, options);
 
     for (const window of restWindows) {
-      await createTmuxWindow(session.name, session.directory, window, false);
+      await createTmuxWindow(session.name, session.directory, window, false, options);
     }
   }
 
   return normalizedSessions;
 };
 
-export const attachToWorkspaceSession = (sessionName: string) =>
+export const attachToWorkspaceSession = (sessionName: string, options: TmuxCommandOptions = {}) =>
   new Promise<void>((resolve, reject) => {
     const child = spawn('tmux', ['attach', '-t', sessionName], {
       stdio: 'inherit',
-      env: process.env,
+      env: buildTmuxEnv(options.forceOutsideTmux),
     });
 
     child.on('error', reject);

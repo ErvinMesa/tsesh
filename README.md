@@ -42,17 +42,20 @@ tsesh
 The flow is:
 
 1. TSesh checks that `tmux` is installed.
-2. It asks how many sessions you want to create.
-3. It asks for each session name.
-4. It asks which directory each session should open in.
-5. It asks whether you want custom windows for that session.
-6. If you choose custom windows, it asks:
+2. If `tmux` is already running, it asks whether to reset the entire workspace or append to the current session.
+3. If you are already inside tmux, the reset option is disabled and TSesh shows a warning telling you to exit tmux first.
+4. It asks how many sessions you want to create.
+5. It asks for each session name.
+6. It asks which directory each session should open in.
+7. It asks whether you want custom windows for that session.
+8. If you choose custom windows, it asks:
    - how many windows to create
    - the name of each window
    - an optional default command for each window
-7. It creates the tmux sessions.
-8. It asks whether you want to generate `setup-workspace.sh`.
-9. It attaches you to the first created session.
+9. It creates the tmux sessions.
+10. It asks whether you want to generate `setup-workspace.sh`.
+11. If TSesh was started outside tmux, it attaches you to the first created session.
+12. If TSesh was started inside tmux, it leaves you in the current tmux session.
 
 ## Directory Picker
 

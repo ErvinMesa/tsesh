@@ -1,7 +1,7 @@
 import path from 'node:path';
 import chalk from 'chalk';
 import { intro, outro } from '@clack/prompts';
-import { clearScreen, confirm, text } from './utils/prompt_utils';
+import { clearScreen, confirm, select, text } from './utils/prompt_utils';
 import { promptForDirectory, resolveDirectoryChoice } from './utils/directory_picker';
 import { getDefaultSessionNames } from './utils/session_defaults';
 import { normalizeSessionName } from './utils/session_name';
@@ -15,6 +15,9 @@ import {
   assertTmuxAvailable,
   attachToWorkspaceSession,
   createWorkspaceSessions,
+  isInsideTmuxSession,
+  isTmuxServerRunning,
+  killTmuxServer,
   listExistingTmuxSessionNames,
   type WorkspaceSession,
 } from './utils/tmux';
@@ -32,6 +35,48 @@ async function main() {
 
   const rootDir = path.resolve(process.cwd());
   clearScreen();
+  const tmuxServerRunning = await isTmuxServerRunning();
+  const insideTmuxSession = isInsideTmuxSession();
+
+  if (tmuxServerRunning) {
+    if (insideTmuxSession) {
+      console.log(
+        chalk.yellow('Warning: you are inside tmux. Exit this tmux instance before clearing the workspace.'),
+      );
+    }
+
+    const resetWorkspaceOption = insideTmuxSession
+      ? {
+          value: 'clear',
+          label: 'Reset the entire workspace',
+          hint: 'Exit tmux first',
+          disabled: true,
+        }
+      : {
+          value: 'clear',
+          label: 'Reset the entire workspace',
+        };
+
+    const appendWorkspaceOption = {
+      value: 'append',
+      label: 'Append to the current session',
+    };
+
+    const existingSessionStrategy = await select({
+      message: 'tmux is already running. Clear all existing sessions or append to the current session?',
+      options: insideTmuxSession
+        ? [appendWorkspaceOption, resetWorkspaceOption]
+        : [resetWorkspaceOption, appendWorkspaceOption],
+      initialValue: insideTmuxSession ? 'append' : undefined,
+    });
+
+    if (existingSessionStrategy === 'clear') {
+      await killTmuxServer();
+    }
+
+    clearScreen();
+  }
+
   const sessionCountInput = await text({
     message: 'How many sessions to make?',
     placeholder: '1',
@@ -92,7 +137,9 @@ async function main() {
     clearScreen();
   }
 
-  const createdSessions = await createWorkspaceSessions(sessions);
+  const createdSessions = await createWorkspaceSessions(sessions, {
+    forceOutsideTmux: insideTmuxSession,
+  });
 
   const shouldCreateSessionMaker = await confirm({
     message: 'Create a setup-workspace.sh file?',
@@ -102,6 +149,11 @@ async function main() {
   if (shouldCreateSessionMaker) {
     const scriptPath = await writeSessionMakerScript(rootDir, createdSessions);
     console.log(chalk.green(`Session maker written to ${scriptPath}`));
+  }
+
+  if (insideTmuxSession) {
+    outro(`Workspace ready. Created ${createdSessions.length} session(s). You are still in the current tmux session.`);
+    return;
   }
 
   await attachToWorkspaceSession(createdSessions[0].name);
